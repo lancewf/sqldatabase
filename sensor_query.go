@@ -2,67 +2,50 @@ package sqldatabase
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 )
 
 type SensorQuery struct {
 	db *sql.DB
-	preparedStatementsMap map[string]*sql.Stmt
 }
 
-func NewSensorQuery(db *sql.DB) *SensorQuery{
-	query := &SensorQuery{db, make(map[string]*sql.Stmt)}
+func NewSensorQuery(db *sql.DB) *SensorQuery {
+	query := &SensorQuery{db}
 
 	return query
 }
 
 func (sensorQuery *SensorQuery) Close() {
-	for _,stmt := range sensorQuery.preparedStatementsMap {
-		stmt.Close()
-	}
 	sensorQuery.db.Close()
 }
 
 func (sensorQuery *SensorQuery) CreateStation(station Station) Station {
-	var prepareStmt *sql.Stmt
-
-	if sensorQuery.preparedStatementsMap["CreateStation"] == nil {
-		stmt, err := sensorQuery.db.Prepare("INSERT INTO station(label, latitude, longitude) VALUES($1, $2, $3) RETURNING id")
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		sensorQuery.preparedStatementsMap["CreateStation"] = stmt
-
-		prepareStmt = stmt
-	}
-
-	var lastInsertId int
-
-	err := prepareStmt.QueryRow(station.label, station.latitude, station.longitude).Scan(&lastInsertId)
+	prepareStmt, err := sensorQuery.db.Prepare("INSERT INTO station(Id, label, latitude, longitude) VALUES($1, $2, $3, $4)")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	station.id = lastInsertId
+	defer prepareStmt.Close()
+
+	fmt.Printf("%v\n", station)
+
+	_, err = prepareStmt.Exec(station.Id, station.Label, station.Latitude, station.Longitude)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	return station
 }
 
 func (sensorQuery *SensorQuery) GetAllStations() []Station {
 
-	var getAllStationsPrepare *sql.Stmt
-
-	if sensorQuery.preparedStatementsMap["GetAllStations"] == nil {
-		stmt, err := sensorQuery.db.Prepare("select id, label, latitude, longitude from station")
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		sensorQuery.preparedStatementsMap["GetAllStations"] = stmt
-
-		getAllStationsPrepare = stmt
+	getAllStationsPrepare, err := sensorQuery.db.Prepare("select Id, label, latitude, longitude from station")
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	defer getAllStationsPrepare.Close()
 
 	rows, err := getAllStationsPrepare.Query()
 
@@ -72,9 +55,9 @@ func (sensorQuery *SensorQuery) GetAllStations() []Station {
 
 	defer rows.Close()
 	var (
-		id int
-		label string
-		latitude float64
+		id        int
+		label     string
+		latitude  float64
 		longitude float64
 	)
 
@@ -91,24 +74,16 @@ func (sensorQuery *SensorQuery) GetAllStations() []Station {
 		stations = append(stations, s)
 	}
 
-
 	return stations
 }
 
 func (sensorQuery *SensorQuery) GetAllEnhancedParameters() []EnhancedParameter {
-
-	var prepareStmt *sql.Stmt
-
-	if sensorQuery.preparedStatementsMap["GetAllEnhancedParameters"] == nil {
-		stmt, err := sensorQuery.db.Prepare("select id, parameter_id, cell_methods, time_interval, vertical_datum from enhanced_parameter")
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		sensorQuery.preparedStatementsMap["GetAllEnhancedParameters"] = stmt
-
-		prepareStmt = stmt
+	prepareStmt, err := sensorQuery.db.Prepare("select Id, parameter_id, cell_methods, time_interval, vertical_datum from enhanced_parameter")
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	defer prepareStmt.Close()
 
 	rows, err := prepareStmt.Query()
 
@@ -118,10 +93,10 @@ func (sensorQuery *SensorQuery) GetAllEnhancedParameters() []EnhancedParameter {
 
 	defer rows.Close()
 	var (
-		id int
-		parameterId int
-		cellMethods string
-		interval string
+		id            int
+		parameterId   int
+		cellMethods   string
+		interval      string
 		verticalDatum string
 	)
 
@@ -138,27 +113,20 @@ func (sensorQuery *SensorQuery) GetAllEnhancedParameters() []EnhancedParameter {
 		enhancedParameters = append(enhancedParameters, ep)
 	}
 
-
 	return enhancedParameters
 }
 
 func (sensorQuery *SensorQuery) CreateEnhancedParameter(enhancedParameter EnhancedParameter) EnhancedParameter {
 	var prepareStmt *sql.Stmt
 
-	if sensorQuery.preparedStatementsMap["CreateEnhancedParameter"] == nil {
-		stmt, err := sensorQuery.db.Prepare(
-			"INSERT INTO enhanced_parameter(id, parameter_id, cell_methods, time_interval, vertical_datum) VALUES($1, $2, $3, $4, $5)")
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		sensorQuery.preparedStatementsMap["CreateEnhancedParameter"] = stmt
-
-		prepareStmt = stmt
+	prepareStmt, err := sensorQuery.db.Prepare(
+		"INSERT INTO enhanced_parameter(Id, parameter_id, cell_methods, time_interval, vertical_datum) VALUES($1, $2, $3, $4, $5)")
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	_, err := prepareStmt.Exec(enhancedParameter.id, enhancedParameter.parameterId,
-		enhancedParameter.cellMethods, enhancedParameter.interval, enhancedParameter.verticalDatum)
+	_, err = prepareStmt.Exec(enhancedParameter.Id, enhancedParameter.ParameterId,
+		enhancedParameter.CellMethods, enhancedParameter.Interval, enhancedParameter.VerticalDatum)
 	if err != nil {
 		log.Fatal(err)
 	}
